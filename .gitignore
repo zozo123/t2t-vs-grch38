@@ -1,0 +1,10 @@
+data/_*.out
+data/_*.out.err
+data/*.time
+data/t2t_*.json
+data/wg_warm_*.json
+data/t2t_warm_lease.json
+scripts/*.log
+scripts/*.out
+__pycache__/
+scripts/__pycache__/

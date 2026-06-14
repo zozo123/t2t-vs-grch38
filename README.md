@@ -1,6 +1,6 @@
 # What T2T changed in the human reference
 
-**A genome-wide GRCh38 -> T2T-CHM13 delta, computed by an agent-run sandbox harness on [islo.dev](https://islo.dev).**
+**A genome-wide GRCh38 -> T2T-CHM13 delta, computed by Claude Code with [OpenClaw Crabbox](https://github.com/openclaw/crabbox) on [islo.dev](https://islo.dev).**
 
 Live site: https://zozo123.github.io/t2t-vs-grch38/
 
@@ -29,19 +29,21 @@ This is not framed as a novel biological discovery. It is a compact, reproducibl
 
 ## Harness
 
-The harness is a Claude Code agent running:
+The harness is a Claude Code agent driving OpenClaw Crabbox:
 
 ```bash
+export ISLO_API_KEY=...
 ./crabbox.sh t2t
 ```
 
-The harness:
+The harness follows the official Crabbox Islo-provider model:
 
-1. Downloads UCSC `hs1.fa.gz` (T2T-CHM13v2.0) and splits it by chromosome.
-2. Warms an islo sandbox with the reference and kernel.
-3. Saves a VM snapshot.
-4. Restores/forks one shard per chromosome.
-5. Reduces T2T per-chromosome JSON against the GRCh38 genome-wide receipts.
+1. `crabbox run --provider islo --keep --lease-output ...` warms an Islo sandbox with UCSC `hs1.fa.gz` (T2T-CHM13v2.0), splits it by chromosome, and keeps the sandbox.
+2. The harness saves that kept sandbox as an Islo snapshot, because the paper is explicitly testing snapshot broadcast.
+3. Each chromosome runs through `crabbox run --provider islo --islo-snapshot-name <snapshot> ...`, so Crabbox owns repo sync, guardrails, timing, and run lifecycle while Islo owns sandbox state and streaming exec.
+4. The reducer merges T2T per-chromosome JSON against the GRCh38 genome-wide receipts.
+
+If `ISLO_API_KEY` / `CRABBOX_ISLO_API_KEY` is missing, the script prints a warning and falls back to the direct Islo CLI path used to generate the published receipts. The preferred path is OpenClaw Crabbox.
 
 Measured run:
 
@@ -58,12 +60,12 @@ Measured run:
 |---|---|
 | `index.html`, `styles.css`, `script.js` | static GitHub Pages paper |
 | `data/compare.json` | comparison receipts used by the figures |
-| `crabbox.sh` | genome-wide harness with `run` and `t2t` modes |
+| `crabbox.sh` | genome-wide OpenClaw Crabbox harness with `run` and `t2t` modes |
 | `scripts/t2t_warmup.sh` | T2T warm-up: download, split, index |
 | `scripts/compute.py` | per-chromosome MAP kernel |
 | `scripts/reduce_compare.py` | GRCh38 vs T2T reducer |
 
-New islo.dev accounts can use coupon `YOSSI150` for 150 free credits.
+`crabbox run --provider islo` requires `ISLO_API_KEY`. New islo.dev accounts can use coupon `YOSSI150` for 150 free credits.
 
 ## Caveats
 

@@ -6,7 +6,7 @@ T2T per-chrom results are read from data/t2t_<chr>.json (this run)."""
 import sys, json, os
 
 data, snap, snapsz, warm, snaps, mapw = sys.argv[1:7]
-chroms = sys.argv[6:]
+chroms = sys.argv[7:]
 warm = float(warm); snaps = float(snaps); mapw = float(mapw)
 
 def load(prefix, chrom):

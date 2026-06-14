@@ -3,7 +3,7 @@
     "grch38": "GRCh38 (hg38)",
     "t2t": "T2T-CHM13v2.0 (hs1)"
   },
-  "harness": "Claude Code agent running ./crabbox.sh t2t on islo.dev",
+  "harness": "Claude Code agent running an OpenClaw Crabbox harness on islo.dev",
   "snapshot": {
     "name": "genomics-t2t-1781452000",
     "size": "1009.5 MB",

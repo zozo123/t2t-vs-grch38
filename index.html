@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>What T2T changed in the human reference — a genome-wide delta from an agent-run sandbox harness</title>
-  <meta name="description" content="A genome-wide GRCh38 to T2T-CHM13 comparison: 179.6 Mb of newly resolved sequence, 40,492 extra candidate CpG islands, and two distinct signals in the resolved sequence. Run end-to-end by a Claude Code harness on islo.dev.">
+  <title>What T2T changed in the human reference — a genome-wide delta with OpenClaw Crabbox</title>
+  <meta name="description" content="A genome-wide GRCh38 to T2T-CHM13 comparison: 179.6 Mb of newly resolved sequence, 40,492 extra candidate CpG islands, and two distinct signals in the resolved sequence. Orchestrated by Claude Code with OpenClaw Crabbox on islo.dev.">
   <meta name="color-scheme" content="light">
   <meta property="og:type" content="article">
   <meta property="og:title" content="What T2T changed in the human reference">
@@ -20,7 +20,7 @@
 <header class="mast">
   <div class="rule"><span>T2T-CHM13v2.0 · GRCh38</span><span>24 chromosomes · live compare.json</span><span>Yossi Eliaz · 2026</span></div>
   <h1>What T2T changed in the human reference<span>.</span></h1>
-  <p class="dek">A genome-wide delta, computed by an agent-run sandbox harness.</p>
+  <p class="dek">A genome-wide delta, computed by Claude Code with OpenClaw Crabbox.</p>
   <p class="abstract"><b>Abstract.</b> The T2T-CHM13 assembly closes many gaps in GRCh38, especially centromeric, pericentromeric, acrocentric, and other repeat-rich sequence. I compared GRCh38 and T2T-CHM13 with the same CpG-island kernel used in the reference-broadcast demo: warm the reference once, snapshot the sandbox, fork one shard per chromosome, and reduce. T2T adds <b data-bind="totals.net_new_mb">179.6</b> Mb of usable sequence and <b data-bind="totals.extra_islands">40,492</b> additional candidate CpG islands. The added sequence is not compositionally uniform: some chromosomes gain mostly island-poor heterochromatin, while acrocentric chromosomes gain CpG-rich sequence that the classical island rule calls heavily. The result is not a new biological discovery; it is a compact, reproducible measurement of what the more complete reference changes, and a useful stress test for agent-orchestrated genomics.</p>
   <nav>
     <a href="#result">Result</a>
@@ -63,15 +63,16 @@
   </section>
 
   <section id="method" class="section">
-    <div class="section-head"><span>03</span><h2>Method: the harness is the agent</h2></div>
-    <p class="lead">This follow-up uses the same systems primitive as the first paper, but points it at T2T-CHM13. The control plane is not a scheduler. It is a Claude Code agent running <code>./crabbox.sh t2t</code>: download and split the complete hs1 FASTA, warm one sandbox, snapshot it, restore-and-fork one shard per chromosome on <a href="https://islo.dev">islo.dev</a>, collect JSON, reduce, and clean up.</p>
+    <div class="section-head"><span>03</span><h2>Method: Claude Code drives OpenClaw Crabbox</h2></div>
+    <p class="lead">This follow-up uses the same systems primitive as the first paper, but points it at T2T-CHM13. The control plane is not a scheduler. It is a Claude Code agent running <a href="https://github.com/openclaw/crabbox">OpenClaw Crabbox</a>: <code>crabbox run --provider islo</code> for disposable execution on <a href="https://islo.dev">islo.dev</a>, with <code>crabbox.sh t2t</code> as the domain harness that downloads and splits hs1, warms one sandbox, snapshots it, forks one shard per chromosome, collects JSON, reduces, and cleans up.</p>
     <div class="timeline">
       <div><span>Warm T2T base</span><b data-bind="timings.warmup_sec">77.6 s</b></div>
       <div><span>Save snapshot</span><b data-bind="snapshot.save_sec">15.0 s</b></div>
       <div><span>Fork 24 shards</span><b data-bind="timings.map_wallclock_sec">60.0 s</b></div>
       <div><span>Snapshot size</span><b data-bind="snapshot.size">1009.5 MB</b></div>
     </div>
-    <pre><code># agent-run harness
+    <pre><code># agent-run harness using OpenClaw Crabbox on islo.dev
+export ISLO_API_KEY=...
 ./crabbox.sh t2t
 
 # inside the harness:
@@ -93,9 +94,10 @@
 
   <section id="reproduce" class="section">
     <div class="section-head"><span>05</span><h2>Reproduce</h2></div>
-    <p class="lead">The repo contains the harness, kernel, warm-up script, reducer, and the exact comparison receipts. New <a href="https://islo.dev">islo.dev</a> accounts can use code <code>YOSSI150</code> for 150 free credits.</p>
+    <p class="lead">The repo contains the harness, kernel, warm-up script, reducer, and the exact comparison receipts. The intended execution path is <a href="https://github.com/openclaw/crabbox">OpenClaw Crabbox</a> with the islo provider; export <code>ISLO_API_KEY</code> before running. New <a href="https://islo.dev">islo.dev</a> accounts can use code <code>YOSSI150</code> for 150 free credits.</p>
     <pre><code>git clone https://github.com/zozo123/t2t-vs-grch38
 cd t2t-vs-grch38
+export ISLO_API_KEY=...
 ./crabbox.sh t2t
 python3 -m http.server 8000</code></pre>
   </section>
@@ -113,7 +115,7 @@ python3 -m http.server 8000</code></pre>
 </main>
 
 <footer>
-  <p><b>What T2T changed in the human reference</b> · by <a href="https://www.linkedin.com/in/yossi-eliaz">Yossi Eliaz</a> · <a href="https://x.com/YossiEliaz">@YossiEliaz</a> · run on <a href="https://islo.dev">islo.dev</a></p>
+  <p><b>What T2T changed in the human reference</b> · by <a href="https://www.linkedin.com/in/yossi-eliaz">Yossi Eliaz</a> · <a href="https://x.com/YossiEliaz">@YossiEliaz</a> · OpenClaw <a href="https://github.com/openclaw/crabbox">Crabbox</a> on <a href="https://islo.dev">islo.dev</a></p>
   <p>Follow-up to <a href="https://zozo123.github.io/genomics-sandboxes/">Reference broadcast by VM snapshot</a>. This page is separate; the original site was not modified.</p>
 </footer>
 
