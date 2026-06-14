@@ -1,0 +1,63 @@
+{
+  "assemblies": {
+    "grch38": "GRCh38 (hg38)",
+    "t2t": "T2T-CHM13v2.0 (hs1)"
+  },
+  "harness": "Claude Code agent running ./crabbox.sh t2t on islo.dev",
+  "snapshot": {
+    "name": "genomics-t2t-1781452000",
+    "size": "1009.5 MB",
+    "save_sec": 15.0
+  },
+  "timings": {
+    "warmup_sec": 77.6,
+    "snapshot_save_sec": 15.0,
+    "map_wallclock_sec": 60.0,
+    "shards": 24
+  },
+  "totals": {
+    "grch38_usable_bp": 2937639113,
+    "grch38_n_bp": 150630719,
+    "t2t_usable_bp": 3117275501,
+    "t2t_n_bp": 0,
+    "net_new_bp": 179636388,
+    "grch38_islands": 264816,
+    "t2t_islands": 305308,
+    "extra_islands": 40492,
+    "new_seq_isl_per_mb": 225.4
+  },
+  "top_gainers": [
+    {"chrom": "chrY", "delta_bp": 36044986, "delta_mb": 36.0},
+    {"chrom": "chr9", "delta_bp": 28826697, "delta_mb": 28.8},
+    {"chrom": "chr1", "delta_bp": 17906316, "delta_mb": 17.9},
+    {"chrom": "chr13", "delta_bp": 15583561, "delta_mb": 15.6},
+    {"chrom": "chr15", "delta_bp": 15111870, "delta_mb": 15.1},
+    {"chrom": "chr16", "delta_bp": 14524431, "delta_mb": 14.5}
+  ],
+  "chromosomes": [
+    {"chrom":"chr1","grch38":{"usable":230481012,"n":18475410,"islands":22490,"gc":41.72,"density":97.6},"t2t":{"usable":248387328,"n":0,"islands":24666,"gc":41.50,"density":99.3},"delta_bp":17906316,"delta_islands":2176},
+    {"chrom":"chr2","grch38":{"usable":240548228,"n":1645301,"islands":17515,"gc":40.23,"density":72.8},"t2t":{"usable":242696752,"n":0,"islands":17733,"gc":40.24,"density":73.1},"delta_bp":2148524,"delta_islands":218},
+    {"chrom":"chr3","grch38":{"usable":198100135,"n":195424,"islands":12527,"gc":39.67,"density":63.2},"t2t":{"usable":201105948,"n":0,"islands":12589,"gc":39.44,"density":62.6},"delta_bp":3005813,"delta_islands":62},
+    {"chrom":"chr4","grch38":{"usable":189752667,"n":461888,"islands":11838,"gc":38.24,"density":62.4},"t2t":{"usable":193574945,"n":0,"islands":12406,"gc":38.13,"density":64.1},"delta_bp":3822278,"delta_islands":568},
+    {"chrom":"chr5","grch38":{"usable":181265378,"n":272881,"islands":12570,"gc":39.51,"density":69.3},"t2t":{"usable":182045439,"n":0,"islands":12750,"gc":39.52,"density":70.0},"delta_bp":780061,"delta_islands":180},
+    {"chrom":"chr6","grch38":{"usable":170078522,"n":727457,"islands":12982,"gc":39.61,"density":76.3},"t2t":{"usable":172126628,"n":0,"islands":13028,"gc":39.61,"density":75.7},"delta_bp":2048106,"delta_islands":46},
+    {"chrom":"chr7","grch38":{"usable":158970131,"n":375842,"islands":14670,"gc":40.70,"density":92.3},"t2t":{"usable":160567428,"n":0,"islands":15112,"gc":40.72,"density":94.1},"delta_bp":1597297,"delta_islands":442},
+    {"chrom":"chr8","grch38":{"usable":144768136,"n":370500,"islands":10762,"gc":40.16,"density":74.3},"t2t":{"usable":146259331,"n":0,"islands":11574,"gc":40.23,"density":79.1},"delta_bp":1491195,"delta_islands":812},
+    {"chrom":"chr9","grch38":{"usable":121790550,"n":16604167,"islands":11534,"gc":41.28,"density":94.7},"t2t":{"usable":150617247,"n":0,"islands":11858,"gc":41.35,"density":78.7},"delta_bp":28826697,"delta_islands":324},
+    {"chrom":"chr10","grch38":{"usable":133262962,"n":534460,"islands":11540,"gc":41.54,"density":86.6},"t2t":{"usable":134758134,"n":0,"islands":12028,"gc":41.54,"density":89.3},"delta_bp":1495172,"delta_islands":488},
+    {"chrom":"chr11","grch38":{"usable":134533742,"n":552880,"islands":11694,"gc":41.54,"density":86.9},"t2t":{"usable":135127769,"n":0,"islands":11926,"gc":41.55,"density":88.3},"delta_bp":594027,"delta_islands":232},
+    {"chrom":"chr12","grch38":{"usable":133137816,"n":137493,"islands":12121,"gc":40.77,"density":91.0},"t2t":{"usable":133324548,"n":0,"islands":12077,"gc":40.77,"density":90.6},"delta_bp":186732,"delta_islands":-44},
+    {"chrom":"chr13","grch38":{"usable":97983125,"n":16381203,"islands":6707,"gc":38.55,"density":68.5},"t2t":{"usable":113566686,"n":0,"islands":17194,"gc":38.32,"density":151.4},"delta_bp":15583561,"delta_islands":10487},
+    {"chrom":"chr14","grch38":{"usable":90568149,"n":16475569,"islands":7711,"gc":40.83,"density":85.1},"t2t":{"usable":101161492,"n":0,"islands":12133,"gc":41.07,"density":119.9},"delta_bp":10593343,"delta_islands":4422},
+    {"chrom":"chr15","grch38":{"usable":84641325,"n":17349864,"islands":7962,"gc":42.03,"density":94.1},"t2t":{"usable":99753195,"n":0,"islands":14739,"gc":42.12,"density":147.8},"delta_bp":15111870,"delta_islands":6777},
+    {"chrom":"chr16","grch38":{"usable":81805943,"n":8532402,"islands":12095,"gc":44.58,"density":147.8},"t2t":{"usable":96330374,"n":0,"islands":12327,"gc":43.53,"density":128.0},"delta_bp":14524431,"delta_islands":232},
+    {"chrom":"chr17","grch38":{"usable":82920204,"n":337237,"islands":14822,"gc":45.32,"density":178.8},"t2t":{"usable":84276897,"n":0,"islands":15116,"gc":45.28,"density":179.4},"delta_bp":1356693,"delta_islands":294},
+    {"chrom":"chr18","grch38":{"usable":80089605,"n":283680,"islands":5579,"gc":39.78,"density":69.7},"t2t":{"usable":80542538,"n":0,"islands":5863,"gc":39.80,"density":72.8},"delta_bp":452933,"delta_islands":284},
+    {"chrom":"chr19","grch38":{"usable":58440758,"n":176858,"islands":16809,"gc":47.94,"density":287.6},"t2t":{"usable":61707364,"n":0,"islands":18076,"gc":47.66,"density":292.9},"delta_bp":3266606,"delta_islands":1267},
+    {"chrom":"chr20","grch38":{"usable":63944257,"n":499910,"islands":7162,"gc":43.80,"density":112.0},"t2t":{"usable":66210255,"n":0,"islands":7236,"gc":43.72,"density":109.3},"delta_bp":2265998,"delta_islands":74},
+    {"chrom":"chr21","grch38":{"usable":40088619,"n":6621364,"islands":4484,"gc":40.94,"density":111.9},"t2t":{"usable":45090682,"n":0,"islands":11409,"gc":41.65,"density":253.0},"delta_bp":5002063,"delta_islands":6925},
+    {"chrom":"chr22","grch38":{"usable":39159777,"n":11658691,"islands":6814,"gc":47.00,"density":174.0},"t2t":{"usable":51324926,"n":0,"islands":10542,"gc":45.85,"density":205.4},"delta_bp":12165149,"delta_islands":3728},
+    {"chrom":"chrX","grch38":{"usable":154893029,"n":1147866,"islands":10323,"gc":39.53,"density":66.6},"t2t":{"usable":154259566,"n":0,"islands":10558,"gc":39.51,"density":68.4},"delta_bp":-633463,"delta_islands":235},
+    {"chrom":"chrY","grch38":{"usable":26415043,"n":30812372,"islands":2105,"gc":40.03,"density":79.7},"t2t":{"usable":62460029,"n":0,"islands":2368,"gc":36.15,"density":37.9},"delta_bp":36044986,"delta_islands":263}
+  ]
+}
