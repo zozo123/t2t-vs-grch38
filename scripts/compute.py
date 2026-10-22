@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""MAP kernel: per-chromosome genomic landscape.
+"""Per-chromosome composition kernel.
 
-Given a chromosome already present in the warm base (/opt/gx/ref/<chr>.fa.gz),
-compute the signals ENCODE-style regulatory genomics cares about:
+Reads $GX_REF/<chrom>.fa.gz (or <chrom>.fa); GX_REF defaults to ~/gx/ref.
+Prints one JSON object on stdout with:
 
-  - GC% in 1 Mb bins  (the isochore / GC landscape)
-  - CpG observed/expected ratio per bin
-  - CpG-island candidates (Gardiner-Garden & Frommer 1987:
-        200 bp window, GC > 50%, obs/exp CpG > 0.6)
-  - N-gap fraction per bin (assembly gaps / centromere)
+  - length, N bases, GC% and CpG observed/expected for the whole chromosome
+  - GC%, CpG observed/expected and N fraction in 1 Mb bins
+  - cpg_islands: the number of CpG-rule windows, i.e. non-overlapping 200-bp
+    windows (tiled from the chromosome start) with >= 150 non-N bases,
+    GC > 50% and CpG observed/expected > 0.6 (the Gardiner-Garden & Frommer
+    1987 thresholds). The key name is historical: windows are not merged into
+    islands and are not annotated CpG islands.
 
-Pure-stdlib + numpy so it runs identically in a cold box and a warm fork.
-Emits one JSON object on stdout. This is the unit of work a single sandbox does.
+numpy is the only dependency.
 """
 import sys, time, json, gzip, os
 import numpy as np
 
 BIN = 1_000_000          # 1 Mb landscape bins
-ISL_WIN = 200            # CpG-island detection window (bp)
-ISL_STEP = 200           # non-overlapping for speed; honest, slightly conservative
+ISL_WIN = 200            # CpG-rule window (bp)
+ISL_STEP = 200           # non-overlapping windows; not merged into islands; overcounts relative to merged islands
 
 def load_seq(path):
     opener = gzip.open if path.endswith(".gz") else open
@@ -78,7 +79,7 @@ def main():
             "n_frac": round(nb / (end - start), 3),
         })
 
-    # CpG-island candidates (Gardiner-Garden & Frommer), non-overlapping windows.
+    # CpG-rule windows (Gardiner-Garden & Frommer thresholds), non-overlapping.
     # reduceat directly on bool masks -> small int outputs (no big int32 copies).
     islands = 0
     nwin = n // ISL_STEP

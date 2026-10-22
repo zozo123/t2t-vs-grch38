@@ -3,7 +3,18 @@
     "grch38": "GRCh38 (hg38)",
     "t2t": "T2T-CHM13v2.0 (hs1)"
   },
-  "harness": "Claude Code agent running an OpenClaw Crabbox harness on islo.dev",
+  "harness": "Claude Code agent running a 24-shard snapshot fan-out via the islo CLI (5357a12)",
+  "run_date": "2026-06-14",
+  "definitions": {
+    "usable": "non-N bases",
+    "n": "N bases (assembly gaps)",
+    "gc": "GC % of usable bases",
+    "islands": "CpG-rule windows: non-overlapping 200-bp windows (>= 150 non-N bases) with GC > 50% and CpG observed/expected > 0.6 (Gardiner-Garden & Frommer 1987 thresholds); not merged into islands, not annotated CpG islands",
+    "density": "islands per Mb of usable sequence",
+    "delta_bp": "t2t.usable - grch38.usable (net)",
+    "delta_islands": "t2t.islands - grch38.islands",
+    "new_seq_isl_per_mb": "extra_islands / (net_new_bp / 1e6): ratio of chromosome-level deltas, not a per-region density"
+  },
   "snapshot": {
     "name": "genomics-t2t-1781452000",
     "size": "1009.5 MB",

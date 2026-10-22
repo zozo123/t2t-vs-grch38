@@ -7,6 +7,7 @@
   --hot: #e5421f;
   --blue: #204f79;
   --green: #486b36;
+  --neg: #1b1813;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --serif: "Newsreader", Georgia, serif;
   --display: "Bricolage Grotesque", Inter, system-ui, sans-serif;
@@ -148,6 +149,14 @@ h2 {
   line-height: 1;
   letter-spacing: -.035em;
 }
+.stats small {
+  display: block;
+  margin-top: .45rem;
+  font-family: var(--mono);
+  font-size: .62rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
 figure { margin: 2rem 0 3rem; }
 figcaption { margin-bottom: .9rem; color: var(--ink); }
 .scatter {
@@ -187,7 +196,7 @@ figcaption { margin-bottom: .9rem; color: var(--ink); }
 .bars, .density { display: grid; gap: .42rem; }
 .barrow {
   display: grid;
-  grid-template-columns: 4.2rem 1fr 1fr 5rem;
+  grid-template-columns: 4.2rem 1fr 1fr 9.5rem;
   gap: .7rem;
   align-items: center;
 }
@@ -196,6 +205,14 @@ figcaption { margin-bottom: .9rem; color: var(--ink); }
   font-size: .74rem;
   color: var(--ink-2);
 }
+.barrow.head span {
+  font-family: var(--mono);
+  font-size: .64rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-2);
+}
+.val .neg { color: var(--neg); font-weight: 600; }
 .track {
   height: .85rem;
   background: rgba(27,24,19,.08);
@@ -203,12 +220,27 @@ figcaption { margin-bottom: .9rem; color: var(--ink); }
   overflow: hidden;
 }
 .fill {
-  height: 100%;
-  width: var(--w);
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--x, 0);
+  width: max(2px, var(--w));
   background: var(--blue);
 }
 .fill.hot { background: var(--hot); }
 .fill.green { background: var(--green); }
+/* losses (negative deltas): drawn leftward from the zero line, hatched */
+.fill.neg {
+  background: repeating-linear-gradient(135deg, var(--neg) 0 2px, transparent 2px 4px);
+  box-shadow: inset 0 0 0 1px var(--neg);
+}
+.zero {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--ink);
+}
 .density-row {
   display: grid;
   grid-template-columns: 4.2rem 1fr 5.5rem;
@@ -301,10 +333,21 @@ footer {
 }
 footer p { max-width: 1220px; margin: .35rem auto; }
 footer a { color: var(--hot); }
+body.data-error #figures::before {
+  content: "data/compare.json could not be loaded, so the figures are empty. The numbers in the text are static copies of it.";
+  display: block;
+  max-width: 1220px;
+  margin: 0 auto 1.5rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--hot);
+  color: var(--hot);
+  font-family: var(--mono);
+  font-size: .78rem;
+}
 @media (max-width: 760px) {
   .rule { display: grid; }
   .stats, .timeline, .grid { grid-template-columns: 1fr; }
-  .barrow { grid-template-columns: 3.6rem 1fr; }
-  .barrow .track:nth-of-type(2), .barrow .val { display: none; }
+  .barrow { grid-template-columns: 3.2rem 1fr 1fr; }
+  .barrow .val { display: none; }
   .scatter { height: 430px; }
 }

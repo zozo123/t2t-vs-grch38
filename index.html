@@ -3,25 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>What T2T changed in the human reference — a genome-wide delta with OpenClaw Crabbox</title>
-  <meta name="description" content="A genome-wide GRCh38 to T2T-CHM13 comparison: 179.6 Mb of newly resolved sequence, 40,492 extra candidate CpG islands, and two distinct signals in the resolved sequence. Orchestrated by Claude Code with OpenClaw Crabbox on islo.dev.">
+  <title>What T2T changed in the human reference — GRCh38 vs T2T-CHM13, per chromosome</title>
+  <meta name="description" content="Per-chromosome comparison of GRCh38 and T2T-CHM13v2.0: a net 179.6 Mb of added non-N sequence and 40,492 more 200-bp windows passing the Gardiner-Garden &amp; Frommer CpG rule (+15%). Composition only; the windows are not annotated CpG islands.">
   <meta name="color-scheme" content="light">
   <meta property="og:type" content="article">
   <meta property="og:title" content="What T2T changed in the human reference">
-  <meta property="og:description" content="The T2T delta is not one signal: resolved heterochromatin dilutes island density, while acrocentric/rDNA-rich sequence drives a large candidate-island gain.">
+  <meta property="og:description" content="T2T adds a net 179.6 Mb of usable sequence. Under a simple CpG-composition rule, heterochromatic additions (chrY, chr9, chr16) add few CpG-rich windows; acrocentric chromosomes (chr13–15, 21, 22) add most.">
   <meta property="og:url" content="https://zozo123.github.io/t2t-vs-grch38/">
   <meta property="og:image" content="https://zozo123.github.io/t2t-vs-grch38/og.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@YossiEliaz">
   <meta name="twitter:creator" content="@YossiEliaz">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231b1813'/%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%23e5421f'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="mast">
-  <div class="rule"><span>T2T-CHM13v2.0 · GRCh38</span><span>24 chromosomes · live compare.json</span><span>Yossi Eliaz · 2026</span></div>
+  <div class="rule"><span>T2T-CHM13v2.0 · GRCh38</span><span>24 chromosomes · run 2026-06-14</span><span>Yossi Eliaz · 2026</span></div>
   <h1>What T2T changed in the human reference<span>.</span></h1>
-  <p class="dek">A genome-wide delta, computed by Claude Code with OpenClaw Crabbox.</p>
-  <p class="abstract"><b>Abstract.</b> The T2T-CHM13 assembly closes many gaps in GRCh38, especially centromeric, pericentromeric, acrocentric, and other repeat-rich sequence. I compared GRCh38 and T2T-CHM13 with the same CpG-island kernel used in the reference-broadcast demo: warm the reference once, snapshot the sandbox, fork one shard per chromosome, and reduce. T2T adds <b data-bind="totals.net_new_mb">179.6</b> Mb of usable sequence and <b data-bind="totals.extra_islands">40,492</b> additional candidate CpG islands. The added sequence is not compositionally uniform: some chromosomes gain mostly island-poor heterochromatin, while acrocentric chromosomes gain CpG-rich sequence that the classical island rule calls heavily. The result is not a new biological discovery; it is a compact, reproducible measurement of what the more complete reference changes, and a useful stress test for agent-orchestrated genomics.</p>
+  <p class="dek">A per-chromosome delta, computed by a Claude Code agent on islo.dev sandboxes.</p>
+  <p class="abstract"><b>Abstract.</b> T2T-CHM13 fills the gaps GRCh38 leaves, mostly centromeric, pericentromeric and acrocentric short-arm sequence [1]. For the 24 chromosomes of both assemblies I counted non-N bases and <dfn>CpG-rule windows</dfn>: non-overlapping 200-bp windows passing the Gardiner-Garden &amp; Frommer rule (GC &gt; 50%, observed/expected CpG &gt; 0.6, at least 150 non-N bases) [3]. The windows are not merged into islands and are not annotated CpG islands. T2T adds a net <b data-bind="totals.net_new_mb">179.6 Mb</b> of usable sequence and <b data-bind="totals.extra_islands">40,492</b> windows (+15%). The gain is uneven: chrY, chr9 and chr16 add 14–36 Mb each but few windows, and the five acrocentric chromosomes add 80% of the extra windows. This is a reproducible composition measurement, not a biological finding.</p>
   <nav>
     <a href="#result">Result</a>
     <a href="#figures">Figures</a>
@@ -33,90 +34,89 @@
 
 <main>
   <section id="result" class="section">
-    <div class="section-head"><span>01</span><h2>The short result</h2></div>
+    <div class="section-head"><span>01</span><h2>Result</h2></div>
     <div class="stats">
-      <div><span>New usable sequence</span><b data-bind="totals.net_new_mb">179.6 Mb</b></div>
-      <div><span>GRCh38 gaps removed</span><b data-bind="totals.grch38_n_mb">150.6 Mb</b></div>
-      <div><span>Extra candidate islands</span><b data-bind="totals.extra_islands">40,492</b></div>
-      <div><span>Density in added sequence</span><b data-bind="totals.new_seq_isl_per_mb">225.4/Mb</b></div>
+      <div><span>Added usable sequence (net)</span><b data-bind="totals.net_new_mb">179.6 Mb</b></div>
+      <div><span>GRCh38 N (gap) sequence</span><b data-bind="totals.grch38_n_mb">150.6 Mb</b></div>
+      <div><span>Extra CpG-rule windows</span><b data-bind="totals.extra_islands">40,492</b></div>
+      <div><span>Net Δwindows / net ΔMb</span><b data-bind="totals.new_seq_isl_per_mb">225.4</b><small>ratio of chromosome-level deltas, not a per-region density</small></div>
     </div>
-    <p class="lead">The surprising part is the sign pattern. I expected the newly resolved sequence to be mostly CpG-island poor. That is true for large heterochromatic additions such as chrY and chr9. But it is not true genome-wide. The acrocentric chromosomes, especially chr13, chr15, chr21, and chr22, gain many candidate islands. That is exactly where a simple Gardiner-Garden and Frommer rule is expected to be vulnerable: GC/CpG-rich rDNA and satellite contexts can satisfy a sequence-composition rule without being ordinary promoter islands.</p>
-    <p class="callout"><b>Interpretation:</b> T2T adds both dark matter and false-positive bait. The correct story is not "T2T is island-rich" or "T2T is island-poor." It is that a complete reference exposes two different classes of previously unresolved sequence, and a simple CpG-island caller separates them imperfectly but visibly.</p>
+    <p class="lead">The added sequence is not uniform. chrY (+36.0 Mb), chr9 (+28.8 Mb) and chr16 (+14.5 Mb) add large blocks of sequence but only 263, 324 and 232 windows, so their window density falls. On these chromosomes most of what T2T adds is satellite heterochromatin [1, 2]. The acrocentric chromosomes (chr13, chr14, chr15, chr21, chr22) add 32,339 of the 40,492 extra windows. A composition rule cannot say what those windows are: GC- and CpG-rich repeats can pass it without being promoter-type CpG islands [4].</p>
+    <p class="callout"><b>Caveat.</b> CpG-rule windows are not CpG islands. On chr21 the kernel finds 4,484 windows on GRCh38 and 11,409 on T2T; UCSC's CpG-island track lists 446 and 864. See <a href="#limits">Limits</a>.</p>
   </section>
 
   <section id="figures" class="section alt">
-    <div class="section-head"><span>02</span><h2>Genome-wide figures</h2></div>
+    <div class="section-head"><span>02</span><h2>Figures</h2></div>
     <figure>
-      <figcaption>Figure 1 · Added usable sequence versus extra candidate CpG islands</figcaption>
+      <figcaption>Figure 1 · Added usable sequence vs extra CpG-rule windows, per chromosome</figcaption>
       <div id="scatter" class="scatter" aria-label="Chromosome scatter plot"></div>
-      <p class="note">The upper-left acrocentric cluster has high candidate-island gain per added Mb. The lower-right chrY/chr9 pattern adds much more sequence than island signal.</p>
+      <p class="note">Red: acrocentric chromosomes, many windows per added Mb. Blue: chrY, chr9 and chr16, much added sequence with few windows.</p>
     </figure>
     <figure>
-      <figcaption>Figure 2 · Per-chromosome delta bars</figcaption>
+      <figcaption>Figure 2 · Per-chromosome deltas, T2T − GRCh38</figcaption>
       <div id="bars" class="bars" aria-label="Per-chromosome delta bars"></div>
+      <p class="note">Hatched bars are losses, drawn left of the zero line: chrX has 0.6 Mb less non-N sequence in T2T, and chr12 has 44 fewer windows.</p>
     </figure>
     <figure>
-      <figcaption>Figure 3 · Density shift, GRCh38 → T2T</figcaption>
+      <figcaption>Figure 3 · Window density (windows per Mb of usable sequence), GRCh38 → T2T</figcaption>
       <div id="density" class="density" aria-label="Density slope chart"></div>
-      <p class="note">The largest density jumps are on acrocentric chromosomes. The largest density drops are where newly resolved sequence is mostly repeat-rich and island-poor.</p>
+      <p class="note">The largest increases are on the acrocentric chromosomes. The largest decreases (chrY, chr16, chr9) are where the added sequence contributes few windows.</p>
     </figure>
   </section>
 
   <section id="method" class="section">
-    <div class="section-head"><span>03</span><h2>Method: Claude Code drives OpenClaw Crabbox</h2></div>
-    <p class="lead">This follow-up uses the same systems primitive as the first paper, but points it at T2T-CHM13. The control plane is not a scheduler. It is a Claude Code agent running <a href="https://github.com/openclaw/crabbox">OpenClaw Crabbox</a>: <code>crabbox run --provider islo</code> for disposable execution on <a href="https://islo.dev">islo.dev</a>, with <code>crabbox.sh t2t</code> as the domain harness that downloads and splits hs1, warms one sandbox, snapshots it, forks one shard per chromosome, collects JSON, reduces, and cleans up.</p>
+    <div class="section-head"><span>03</span><h2>Method</h2></div>
+    <p class="lead"><code>scripts/compute.py</code> reads one chromosome, counts bases, and tiles it from the start into non-overlapping 200-bp windows. A window passes if it has at least 150 non-N bases, GC &gt; 50% and observed/expected CpG &gt; 0.6, with obs/exp = CpG × L / (C × G) over its L non-N bases. Inputs are UCSC <code>hg38</code> per-chromosome FASTA and UCSC <code>hs1.fa.gz</code> (T2T-CHM13v2.0); chr1–22, X and Y, no chrM.</p>
+    <p class="lead">The published numbers were computed on 2026-06-14 by a Claude Code agent running <code>./crabbox.sh t2t</code> through the direct islo CLI path (commit <code>5357a12</code>). One <a href="https://islo.dev">islo.dev</a> sandbox downloads and splits hs1 and is saved as a snapshot; 24 forks of it each run one chromosome, 8 at a time. The GRCh38 values are the per-chromosome receipts of the earlier <a href="https://zozo123.github.io/genomics-sandboxes/">genomics-sandboxes</a> run of the same kernel. An <a href="https://github.com/openclaw/crabbox">OpenClaw Crabbox</a> execution path was added to the script later (<code>61d1488</code>) and has not been re-run.</p>
     <div class="timeline">
       <div><span>Warm T2T base</span><b data-bind="timings.warmup_sec">77.6 s</b></div>
       <div><span>Save snapshot</span><b data-bind="snapshot.save_sec">15.0 s</b></div>
-      <div><span>Fork 24 shards</span><b data-bind="timings.map_wallclock_sec">60.0 s</b></div>
+      <div><span>24 shards, 8 concurrent</span><b data-bind="timings.map_wallclock_sec">60.0 s</b></div>
       <div><span>Snapshot size</span><b data-bind="snapshot.size">1009.5 MB</b></div>
     </div>
-    <pre><code># agent-run harness using OpenClaw Crabbox on islo.dev
-export ISLO_API_KEY=...
-./crabbox.sh t2t
-
-# inside the harness:
-# 1. download UCSC hs1.fa.gz (T2T-CHM13v2.0) and split by chromosome
-# 2. snapshot the warmed sandbox
-# 3. restore-and-fork chr1...chr22, chrX, chrY
-# 4. reduce T2T per-chromosome JSON against the existing GRCh38 receipts</code></pre>
   </section>
 
   <section id="limits" class="section alt">
-    <div class="section-head"><span>04</span><h2>What this does and does not claim</h2></div>
+    <div class="section-head"><span>04</span><h2>Limits</h2></div>
     <div class="grid">
-      <p><b>This is a reference comparison.</b> It compares public assemblies, not individuals. It says nothing about any person, trait, diagnosis, or methylation state.</p>
-      <p><b>The islands are candidates.</b> The 1987 CpG-island rule is useful because it is transparent, but it over-calls in some GC-rich repeat contexts. That is not hidden here; it is part of the result.</p>
-      <p><b>The new signal is methodological.</b> The follow-up is interesting because it uses a reproducible agent harness to expose a known hard edge in genome annotation: completing the reference changes what simple sequence-composition rules see.</p>
-      <p><b>The result is inspectable.</b> Every number is in <a href="./data/compare.json">data/compare.json</a>. The site renders from that file at load time.</p>
+      <p><b>Windows are not CpG islands.</b> Passing windows are not merged and no repeat filter is applied. chr21: 4,484 windows on GRCh38 (2,781 runs after merging adjacent windows) and 11,409 on T2T, against 446 (hg38) and 864 (hs1) in UCSC's CpG-island track. Stricter criteria that exclude repeats exist [4]; they were not applied.</p>
+      <p><b>Composition only.</b> No repeat-annotation overlap was performed. Nothing here is a functional, promoter or methylation claim.</p>
+      <p><b>179.6 Mb is net.</b> chrX is −0.6 Mb. GRCh38 centromeres are modeled sequence rather than N gaps, so its 150.6 Mb of N sequence undercounts what T2T resolved.</p>
+      <p><b>rDNA is modeled.</b> CHM13's rDNA arrays are model sequences [1], so window counts there scale with the modeled copy number.</p>
+      <p><b>chrY is from HG002.</b> T2T-CHM13v2.0 takes chrY from HG002, not CHM13 [2], so the chrY delta also reflects a different individual's Y.</p>
+      <p><b>Reference assemblies only.</b> Nothing here is about any person, trait or diagnosis. Every number is in <a href="./data/compare.json">data/compare.json</a>, which the page renders at load time.</p>
     </div>
   </section>
 
   <section id="reproduce" class="section">
     <div class="section-head"><span>05</span><h2>Reproduce</h2></div>
-    <p class="lead">The repo contains the harness, kernel, warm-up script, reducer, and the exact comparison receipts. The intended execution path is <a href="https://github.com/openclaw/crabbox">OpenClaw Crabbox</a> with the islo provider; export <code>ISLO_API_KEY</code> before running. New <a href="https://islo.dev">islo.dev</a> accounts can use code <code>YOSSI150</code> for 150 free credits.</p>
-    <pre><code>git clone https://github.com/zozo123/t2t-vs-grch38
-cd t2t-vs-grch38
-export ISLO_API_KEY=...
-./crabbox.sh t2t
-python3 -m http.server 8000</code></pre>
+    <p class="lead"><b>Locally, one chromosome, no sandbox.</b> The output matches the published GRCh38 chr21 receipt exactly, apart from <code>compute_sec</code>.</p>
+    <pre><code>git clone https://github.com/zozo123/t2t-vs-grch38 && cd t2t-vs-grch38
+python3 -m venv .venv && . .venv/bin/activate
+pip install numpy==2.4.6
+mkdir -p ref
+curl -fsSL -o ref/chr21.fa.gz https://hgdownload.soe.ucsc.edu/goldenPath/hg38/chromosomes/chr21.fa.gz
+GX_REF=ref python3 scripts/compute.py chr21 | python3 -c 'import json,sys; print(json.load(sys.stdin)["cpg_islands"])'
+# 4484</code></pre>
+    <p class="lead"><b>All 24 chromosomes, on islo.dev.</b> Needs the <code>islo</code> CLI, logged in. <code>./crabbox.sh t2t</code> writes <code>data/compare.new.json</code>, never <code>data/compare.json</code>, and exits non-zero if any of the 24 shards is missing.</p>
+    <pre><code>./crabbox.sh t2t
+diff &lt;(python3 -m json.tool data/compare.json) &lt;(python3 -m json.tool data/compare.new.json)</code></pre>
   </section>
 
   <section class="section refs">
     <div class="section-head"><span>§</span><h2>References</h2></div>
     <ol>
-      <li>Nurk S. et al. The complete sequence of a human genome. <i>Science</i>, 2022.</li>
-      <li>Rhie A. et al. The complete sequence of a human Y chromosome. <i>Nature</i>, 2023.</li>
-      <li>Gardiner-Garden M., Frommer M. CpG islands in vertebrate genomes. <i>J Mol Biol</i>, 1987.</li>
-      <li>Takai D., Jones P.A. Comprehensive analysis of CpG islands in human chromosomes 21 and 22. <i>PNAS</i>, 2002.</li>
-      <li>Agache A. et al. Firecracker: lightweight virtualization for serverless applications. <i>USENIX NSDI</i>, 2020.</li>
+      <li>Nurk S. et al. The complete sequence of a human genome. <i>Science</i> 376:44–53, 2022. <a href="https://doi.org/10.1126/science.abj6987">doi:10.1126/science.abj6987</a></li>
+      <li>Rhie A. et al. The complete sequence of a human Y chromosome. <i>Nature</i> 621:344–354, 2023. <a href="https://doi.org/10.1038/s41586-023-06457-y">doi:10.1038/s41586-023-06457-y</a></li>
+      <li>Gardiner-Garden M., Frommer M. CpG islands in vertebrate genomes. <i>J Mol Biol</i> 196:261–282, 1987. <a href="https://doi.org/10.1016/0022-2836(87)90689-9">doi:10.1016/0022-2836(87)90689-9</a></li>
+      <li>Takai D., Jones P.A. Comprehensive analysis of CpG islands in human chromosomes 21 and 22. <i>PNAS</i> 99:3740–3745, 2002. <a href="https://doi.org/10.1073/pnas.052410099">doi:10.1073/pnas.052410099</a></li>
     </ol>
   </section>
 </main>
 
 <footer>
-  <p><b>What T2T changed in the human reference</b> · by <a href="https://www.linkedin.com/in/yossi-eliaz">Yossi Eliaz</a> · <a href="https://x.com/YossiEliaz">@YossiEliaz</a> · OpenClaw <a href="https://github.com/openclaw/crabbox">Crabbox</a> on <a href="https://islo.dev">islo.dev</a></p>
-  <p>Follow-up to <a href="https://zozo123.github.io/genomics-sandboxes/">Reference broadcast by VM snapshot</a>. This page is separate; the original site was not modified.</p>
+  <p><b>What T2T changed in the human reference</b> · <a href="https://www.linkedin.com/in/yossi-eliaz">Yossi Eliaz</a> · <a href="https://x.com/YossiEliaz">@YossiEliaz</a> · <a href="https://github.com/zozo123/t2t-vs-grch38">source</a> (MIT)</p>
+  <p>Follow-up to <a href="https://zozo123.github.io/genomics-sandboxes/">Reference broadcast by VM snapshot</a>. Reference data: UCSC Genome Browser (hg38) and the T2T Consortium (CHM13v2.0); see their terms.</p>
 </footer>
 
 <script src="script.js"></script>

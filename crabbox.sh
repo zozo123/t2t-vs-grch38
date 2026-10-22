@@ -1,30 +1,26 @@
 #!/usr/bin/env bash
 #
-# crabbox.sh — genome-wide reference-broadcast fan-out with OpenClaw Crabbox.
+# crabbox.sh — islo.dev sandbox harness for the T2T-CHM13 vs GRCh38 comparison.
 #
-#   ./crabbox.sh run        # warm one box (all 24 GRCh38 chromosomes + index),
-#                           # snapshot it, fork one box per chromosome, reduce, time it, tear down.
+#   ./crabbox.sh t2t      warm one sandbox with T2T-CHM13v2.0 (UCSC hs1.fa.gz), snapshot it,
+#                         run scripts/compute.py on 24 forks of the snapshot (MAXP at a time),
+#                         and reduce against the GRCh38 receipts -> data/compare.new.json
+#   ./crabbox.sh grch38   recompute the 24 GRCh38 receipts (data/wg_warm_<chr>.json) the same
+#                         way. Optional: without them, `t2t` fetches the published receipts
+#                         from zozo123/genomics-sandboxes at a pinned commit.
 #
-# Why this exists
-#   The reference genome + indices are large, read-only, and shared by every shard
-#   of a scatter-gather. Instead of re-staging them per worker, we warm one box,
-#   snapshot its initialized state once, and restore-and-fork it copy-on-write per
-#   chromosome. This is the genome-wide version of the 5-chromosome demo.
+# Both modes exit non-zero unless all 24 shard outputs exist. Neither writes data/compare.json.
 #
-# How it works
-#   OpenClaw Crabbox (https://github.com/openclaw/crabbox) is the ephemeral "warm a box,
-#   sync the working tree, run the suite, tear down" path; it leases boxes from a
-#   broker or from a provider. For islo.dev, use `crabbox run --provider islo`
-#   with ISLO_API_KEY exported. Snapshot creation is still done with the islo CLI
-#   because it is the snapshot primitive the paper is testing; shard execution uses
-#   Crabbox when the islo provider is authenticated.
+# Provenance
+#   The published data/compare.json came from the direct islo CLI path (commit 5357a12).
+#   The OpenClaw Crabbox shard path (used when crabbox is installed and ISLO_API_KEY or
+#   CRABBOX_ISLO_API_KEY is set) was added in 61d1488 and has not been re-run.
 #
 # Requirements
-#   - crabbox         (https://github.com/openclaw/crabbox)
-#   - ISLO_API_KEY    required for `crabbox run --provider islo`
-#   - islo            (https://islo.dev), logged in, for snapshot save/list
+#   - islo (https://islo.dev), logged in: sandboxes, snapshot save/list
+#   - optional: crabbox (https://github.com/openclaw/crabbox) and ISLO_API_KEY
 #
-set -uo pipefail
+set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 export ISLO_OUTPUT_FORMAT=plain
 if [ -z "${ISLO_API_KEY:-}" ] && [ -n "${CRABBOX_ISLO_API_KEY:-}" ]; then
@@ -32,21 +28,32 @@ if [ -z "${ISLO_API_KEY:-}" ] && [ -n "${CRABBOX_ISLO_API_KEY:-}" ]; then
 fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd "$ROOT"
 DATA="$ROOT/data"; mkdir -p "$DATA"
-LOG="$ROOT/scripts/wg.log"; : > "$LOG"
+LOG="$ROOT/scripts/wg.log"
 
-# all 24 GRCh38 chromosomes
+# Pins. The original run recorded no versions; the image is what python:3.12-slim
+# resolved to on the run date (2026-06-14). numpy==2.4.6 is pinned in scripts/*warmup.sh.
+IMG="docker.io/library/python:3.12.13-slim"
+CRABBOX_VERSION="0.36.0"   # the crabbox flags below were checked against this version's --help
+GRCH38_RECEIPTS="https://raw.githubusercontent.com/zozo123/genomics-sandboxes/79ce3e0671f8c176c0983c20829768e8c95054fd/data"
+
 CHROMS=(chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 \
         chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY)
-MAXP="${MAXP:-8}"                       # concurrent forks (fabric-friendly waves)
-TS="$(python3 -c 'import time;print(int(time.time()))')"
-SNAP="genomics-wg-$TS"
-IMG="docker.io/library/python:3.12-slim"
+MAXP="${MAXP:-8}"                       # concurrent forks
 FORKMEM="${FORKMEM:-8192}"              # chr1 (~250 Mb) needs headroom
-COLD_REF="chr1"                         # cold baseline shard (largest)
+TS="$(date +%s)"
+SNAP=""                                 # set per mode
 
 now(){ python3 -c 'import time;print("%.3f"%time.time())'; }
+since(){ python3 -c "print(round($(now)-$1,2))"; }
 say(){ echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
+b64(){ base64 < "$1" | tr -d '\n'; }
 have_crabbox_islo(){ command -v crabbox >/dev/null 2>&1 && [ -n "${ISLO_API_KEY:-}" ]; }
+check_crabbox_version(){
+  local v; v="$(crabbox --version 2>/dev/null | head -1 || true)"
+  if [ "$v" != "$CRABBOX_VERSION" ]; then
+    say "warning: crabbox ${v:-unknown}; flags were checked against $CRABBOX_VERSION"
+  fi
+}
 lease_sandbox_name(){
   python3 - "$1" <<'PY'
 import json, sys
@@ -72,28 +79,27 @@ for v in vals:
 raise SystemExit("could not find sandbox name in lease output")
 PY
 }
-ensure_grch38_receipts(){
-  local c url
-  for c in "${CHROMS[@]}"; do
-    [ -s "$DATA/wg_warm_$c.json" ] && continue
-    url="https://raw.githubusercontent.com/zozo123/genomics-sandboxes/main/data/wg_warm_$c.json"
-    say "fetching GRCh38 receipt for $c"
-    curl -fsSL "$url" -o "$DATA/wg_warm_$c.json"
-  done
-}
-WARMB64="$(base64 < "$ROOT/scripts/warmup.sh")"
-COMPB64="$(base64 < "$ROOT/scripts/compute.py")"
-T2TB64="$(base64 < "$ROOT/scripts/t2t_warmup.sh" 2>/dev/null || true)"
-inject(){ islo use "$1" --image "$IMG" --cpu 2 --memory 4096 --disk 40 -- bash -lc \
-  "mkdir -p \$HOME/gx && echo $WARMB64 | base64 -d > \$HOME/gx/warmup.sh && echo $COMPB64 | base64 -d > \$HOME/gx/compute.py && echo $T2TB64 | base64 -d > \$HOME/gx/t2t_warmup.sh && chmod +x \$HOME/gx/warmup.sh \$HOME/gx/t2t_warmup.sh && echo ok" >>"$LOG" 2>&1; }
 
-# T2T fork: compute one chromosome from the T2T snapshot (GX_REF points at the split T2T ref)
-run_t2t_shard(){ # $1 box $2 chr
-  local box="$1" chr="$2" try ts el
+# Copy the kernel and warm-up scripts into a fresh sandbox (islo CLI path).
+inject(){
+  local w c t
+  w="$(b64 scripts/warmup.sh)"; c="$(b64 scripts/compute.py)"; t="$(b64 scripts/t2t_warmup.sh)"
+  islo use "$1" --image "$IMG" --cpu 2 --memory 4096 --disk 40 -- bash -lc \
+    "mkdir -p \$HOME/gx && echo $w | base64 -d > \$HOME/gx/warmup.sh && echo $c | base64 -d > \$HOME/gx/compute.py && echo $t | base64 -d > \$HOME/gx/t2t_warmup.sh && chmod +x \$HOME/gx/warmup.sh \$HOME/gx/t2t_warmup.sh && echo ok" >>"$LOG" 2>&1
+}
+
+# Keep the kernel's JSON line from a shard's stdout. $1 raw output, $2 destination.
+keep_json(){
+  if grep -q '^{"chrom"' "$1"; then grep '^{"chrom"' "$1" > "$2"; else return 1; fi
+}
+
+# One fork per chromosome from snapshot $SNAP. $1 box name, $2 chromosome.
+run_t2t_shard(){
+  local box="$1" chr="$2" out="$DATA/_t2t_$2.out" try ts
   for try in 1 2; do
     islo rm "$box" >>"$LOG" 2>&1 || true
     ts=$(now)
-    if command -v crabbox >/dev/null 2>&1 && [ -n "${ISLO_API_KEY:-}" ]; then
+    if have_crabbox_islo; then
       crabbox run --provider islo \
         --islo-image "$IMG" \
         --islo-snapshot-name "$SNAP" \
@@ -102,148 +108,164 @@ run_t2t_shard(){ # $1 box $2 chr
         --islo-disk-gb 40 \
         --label "t2t-$chr" \
         -- bash -lc "GX_REF=\$HOME/gx/ref_t2t python3 scripts/compute.py $chr" \
-        > "$DATA/_t2t_$chr.out" 2>>"$LOG"
+        > "$out" 2>>"$LOG" || true
     else
-      [ -z "${ISLO_API_KEY:-}" ] && say "  [t2t] OpenClaw crabbox islo provider needs ISLO_API_KEY; falling back to direct islo CLI for $chr"
-      islo use "$box" --snapshot "$SNAP" --cpu 2 --memory "$FORKMEM" --disk 40 -- bash -lc "GX_REF=\$HOME/gx/ref_t2t python3 \$HOME/gx/compute.py $chr" > "$DATA/_t2t_$chr.out" 2>>"$LOG"
+      islo use "$box" --snapshot "$SNAP" --cpu 2 --memory "$FORKMEM" --disk 40 \
+        -- bash -lc "GX_REF=\$HOME/gx/ref_t2t python3 \$HOME/gx/compute.py $chr" \
+        > "$out" 2>>"$LOG" || true
     fi
-    el=$(python3 -c "print(round($(now)-$ts,2))")
-    if grep -q '^{"chrom"' "$DATA/_t2t_$chr.out"; then
-      grep '^{"chrom"' "$DATA/_t2t_$chr.out" > "$DATA/t2t_$chr.json"; echo "$el" > "$DATA/t2t_$chr.time"
-      say "  [t2t] $chr ${el}s (try $try)"; islo rm "$box" >>"$LOG" 2>&1 || true; return 0
+    if keep_json "$out" "$DATA/t2t_$chr.json"; then
+      since "$ts" > "$DATA/t2t_$chr.time"
+      say "  [t2t] $chr $(cat "$DATA/t2t_$chr.time")s (try $try)"; islo rm "$box" >>"$LOG" 2>&1 || true; return 0
     fi
     say "  [t2t] $chr try $try: no JSON, retry"
   done
   say "  [t2t] $chr FAILED"; islo rm "$box" >>"$LOG" 2>&1 || true; return 1
 }
 
-run_shard(){ # $1 box $2 chr $3 mode(cold|warm)
-  local box="$1" chr="$2" mode="$3" try ts el
+run_grch38_shard(){ # $1 box name, $2 chromosome
+  local box="$1" chr="$2" out="$DATA/_wg_warm_$2.out" try ts
   for try in 1 2; do
     islo rm "$box" >>"$LOG" 2>&1 || true
     ts=$(now)
-    if [ "$mode" = cold ]; then
-      inject "$box"
-      islo use "$box" --cpu 2 --memory "$FORKMEM" --disk 25 -- bash -lc "\$HOME/gx/warmup.sh $chr >/dev/null 2>&1 && python3 \$HOME/gx/compute.py $chr" > "$DATA/_wg_${mode}_$chr.out" 2>>"$LOG"
-    else
-      islo use "$box" --snapshot "$SNAP" --cpu 2 --memory "$FORKMEM" -- bash -lc "python3 \$HOME/gx/compute.py $chr" > "$DATA/_wg_${mode}_$chr.out" 2>>"$LOG"
+    islo use "$box" --snapshot "$SNAP" --cpu 2 --memory "$FORKMEM" \
+      -- bash -lc "python3 \$HOME/gx/compute.py $chr" > "$out" 2>>"$LOG" || true
+    if keep_json "$out" "$DATA/wg_warm_$chr.json"; then
+      since "$ts" > "$DATA/wg_warm_$chr.time"
+      say "  [grch38] $chr $(cat "$DATA/wg_warm_$chr.time")s (try $try)"; islo rm "$box" >>"$LOG" 2>&1 || true; return 0
     fi
-    el=$(python3 -c "print(round($(now)-$ts,2))")
-    if grep -q '^{"chrom"' "$DATA/_wg_${mode}_$chr.out"; then
-      grep '^{"chrom"' "$DATA/_wg_${mode}_$chr.out" > "$DATA/wg_${mode}_$chr.json"
-      echo "$el" > "$DATA/wg_${mode}_$chr.time"
-      say "  [$mode] $chr ${el}s (try $try)"; islo rm "$box" >>"$LOG" 2>&1 || true; return 0
-    fi
-    say "  [$mode] $chr try $try: no JSON, retry"
+    say "  [grch38] $chr try $try: no JSON, retry"
   done
-  say "  [$mode] $chr FAILED"; islo rm "$box" >>"$LOG" 2>&1 || true; return 1
+  say "  [grch38] $chr FAILED"; islo rm "$box" >>"$LOG" 2>&1 || true; return 1
 }
 
-cmd_run(){
-  say "=== genome-wide reference-broadcast fan-out · ${#CHROMS[@]} chromosomes · harness=Claude Code ==="
-  command -v crabbox >/dev/null && say "crabbox present; coordinator: $(crabbox whoami 2>&1 | head -1)"
-
-  # 1 · WARM BASE (download all 24 chromosomes + index, once)
-  say "=== 1/5 warm base: toolchain + ${#CHROMS[@]} GRCh38 chromosomes + index ==="
-  islo rm gx-wg-warm >>"$LOG" 2>&1 || true
-  t=$(now); inject gx-wg-warm
-  islo use gx-wg-warm --cpu 2 --memory 4096 --disk 25 -- bash -lc "\$HOME/gx/warmup.sh ${CHROMS[*]}" >>"$LOG" 2>&1
-  WARM=$(python3 -c "print(round($(now)-$t,2))"); say "warm base built in ${WARM}s"
-
-  # 2 · SNAPSHOT (the broadcast)
-  say "=== 2/5 snapshot warm base -> $SNAP ==="
-  t=$(now); islo snapshot save gx-wg-warm --name "$SNAP" >>"$LOG" 2>&1
-  SNAPS=$(python3 -c "print(round($(now)-$t,2))")
-  SNAPSZ=$(islo snapshot ls 2>/dev/null | grep -F "$SNAP" | awk '{print $2" "$3}')
-  say "snapshot saved in ${SNAPS}s (size ${SNAPSZ:-n/a})"
-
-  # 3 · COLD BASELINE (one large shard from scratch, for honest per-shard cold cost)
-  say "=== 3/5 cold baseline: $COLD_REF from scratch ==="
-  t=$(now); run_shard gx-wg-cold "$COLD_REF" cold; COLD=$(python3 -c "print(round($(now)-$t,2))")
-  say "cold baseline ($COLD_REF) ${COLD}s"
-
-  # 4 · WARM FAN-OUT (fork per chromosome, in waves of MAXP)
-  say "=== 4/5 warm fan-out: fork ${#CHROMS[@]} shards from snapshot (MAXP=$MAXP) ==="
-  t_map=$(now); i=0
-  while [ $i -lt ${#CHROMS[@]} ]; do
-    pids=()
-    for j in $(seq 0 $((MAXP-1))); do
-      idx=$((i+j)); [ $idx -ge ${#CHROMS[@]} ] && break
-      run_shard "gx-wg-${CHROMS[$idx]}" "${CHROMS[$idx]}" warm & pids+=($!)
+# Run $1 (a shard function) for every chromosome, MAXP at a time. $2 box-name prefix.
+fanout(){
+  local fn="$1" prefix="$2" i=0 j p chr pids
+  while [ "$i" -lt "${#CHROMS[@]}" ]; do
+    pids=(); j="$i"
+    while [ "$j" -lt "${#CHROMS[@]}" ] && [ "$j" -lt $((i + MAXP)) ]; do
+      chr="${CHROMS[$j]}"
+      "$fn" "$prefix-$chr" "$chr" & pids+=("$!")
+      j=$((j + 1))
     done
-    for p in "${pids[@]}"; do wait "$p"; done
-    i=$((i+MAXP))
+    for p in "${pids[@]}"; do wait "$p" || true; done
+    i=$((i + MAXP))
   done
-  MAP=$(python3 -c "print(round($(now)-$t_map,2))"); say "warm fan-out wall-clock ${MAP}s"
-
-  # 5 · REDUCE
-  say "=== 5/5 reduce -> data/receipts.json (genome-wide) ==="
-  python3 scripts/reduce_wg.py "$DATA" "$SNAP" "$SNAPSZ" "$WARM" "$SNAPS" "$COLD" "$COLD_REF" "$MAP" "$MAXP" "${CHROMS[@]}" | tee -a "$LOG"
-  say "=== DONE (snapshot $SNAP retained) ==="
 }
 
-# ---- T2T follow-up: same harness, pointed at the complete T2T-CHM13 assembly ----
+# Exit 1 unless data/<prefix>_<chr>.json exists for all 24 chromosomes.
+require_outputs(){
+  local c missing=""
+  for c in "${CHROMS[@]}"; do
+    if [ ! -s "$DATA/$1_$c.json" ]; then missing="$missing $c"; fi
+  done
+  if [ -n "$missing" ]; then
+    say "ERROR: no $1 output for:$missing. Not reducing."
+    exit 1
+  fi
+}
+
+# Use local GRCh38 receipts only if all 24 exist; otherwise fetch all 24 at the pinned commit.
+grch38_receipts(){
+  local c n=0
+  for c in "${CHROMS[@]}"; do
+    if [ -s "$DATA/wg_warm_$c.json" ]; then n=$((n + 1)); fi
+  done
+  if [ "$n" -eq "${#CHROMS[@]}" ]; then
+    say "using local GRCh38 receipts (data/wg_warm_*.json)"; return 0
+  fi
+  say "fetching GRCh38 receipts from $GRCH38_RECEIPTS"
+  for c in "${CHROMS[@]}"; do
+    curl -fsSL "$GRCH38_RECEIPTS/wg_warm_$c.json" -o "$DATA/wg_warm_$c.json"
+  done
+}
+
 cmd_t2t(){
+  local warm_box="gx-t2t-warm" via t warm snaps snapsz map
+  : > "$LOG"
   SNAP="genomics-t2t-$TS"
-  say "=== T2T-CHM13 vs GRCh38 delta · ${#CHROMS[@]} chromosomes · harness=Claude Code + OpenClaw Crabbox ==="
-  # 1 · warm base: download + split the complete T2T assembly (paid once)
-  say "=== 1/4 warm base: OpenClaw crabbox run --provider islo --keep ==="
-  WARM_BOX="gx-t2t-warm"
-  islo rm "$WARM_BOX" >>"$LOG" 2>&1 || true
+  if have_crabbox_islo; then
+    via="OpenClaw Crabbox (islo provider)"; check_crabbox_version
+  else
+    via="islo CLI"
+    say "crabbox or ISLO_API_KEY not available; using the islo CLI path (the one that produced the published numbers)"
+  fi
+  say "=== T2T-CHM13v2.0 vs GRCh38 · ${#CHROMS[@]} chromosomes · shards via $via ==="
+  rm -f "$DATA"/t2t_chr*.json "$DATA"/t2t_chr*.time "$DATA"/_t2t_*.out "$DATA/compare.new.json"
+
+  say "=== 1/4 warm base: download hs1, md5-check, split per chromosome ==="
+  islo rm "$warm_box" >>"$LOG" 2>&1 || true
   t=$(now)
   if have_crabbox_islo; then
-    LEASE_JSON="$DATA/t2t_warm_lease.json"
     crabbox run --provider islo \
       --islo-image "$IMG" \
       --islo-vcpus 2 \
       --islo-memory-mb 4096 \
       --islo-disk-gb 40 \
       --keep \
-      --lease-output "$LEASE_JSON" \
+      --lease-output "$DATA/t2t_warm_lease.json" \
       --label t2t-warm \
       -- bash -lc "bash scripts/t2t_warmup.sh && mkdir -p \$HOME/gx && cp scripts/compute.py \$HOME/gx/compute.py" \
       >>"$LOG" 2>&1
-    WARM_BOX="$(lease_sandbox_name "$LEASE_JSON")"
-    say "warm base kept by Crabbox as $WARM_BOX"
+    warm_box="$(lease_sandbox_name "$DATA/t2t_warm_lease.json")"
+    say "warm base kept by Crabbox as $warm_box"
   else
-    say "ISLO_API_KEY/CRABBOX_ISLO_API_KEY missing; falling back to direct islo CLI for warm base"
-    inject "$WARM_BOX"
-    islo use "$WARM_BOX" --cpu 2 --memory 4096 --disk 40 -- bash -lc "\$HOME/gx/t2t_warmup.sh" >>"$LOG" 2>&1
+    inject "$warm_box"
+    islo use "$warm_box" --cpu 2 --memory 4096 --disk 40 -- bash -lc "\$HOME/gx/t2t_warmup.sh" >>"$LOG" 2>&1
   fi
-  WARM=$(python3 -c "print(round($(now)-$t,2))"); say "T2T warm base built in ${WARM}s"
-  # 2 · snapshot
+  warm=$(since "$t"); say "T2T warm base built in ${warm}s"
+
   say "=== 2/4 snapshot -> $SNAP ==="
-  t=$(now); islo snapshot save "$WARM_BOX" --name "$SNAP" >>"$LOG" 2>&1
-  SNAPS=$(python3 -c "print(round($(now)-$t,2))")
-  SNAPSZ=$(islo snapshot ls 2>/dev/null | grep -F "$SNAP" | awk '{print $2" "$3}')
-  say "snapshot saved in ${SNAPS}s (size ${SNAPSZ:-n/a})"
+  t=$(now); islo snapshot save "$warm_box" --name "$SNAP" >>"$LOG" 2>&1; snaps=$(since "$t")
+  snapsz=$(islo snapshot ls 2>/dev/null | grep -F "$SNAP" | awk '{print $2" "$3}' || true)
+  say "snapshot saved in ${snaps}s (size ${snapsz:-n/a})"
   if have_crabbox_islo; then
-    crabbox stop --provider islo "$WARM_BOX" >>"$LOG" 2>&1 || true
+    crabbox stop --provider islo "$warm_box" >>"$LOG" 2>&1 || true
   else
-    islo rm "$WARM_BOX" >>"$LOG" 2>&1 || true
+    islo rm "$warm_box" >>"$LOG" 2>&1 || true
   fi
-  # 3 · fan-out (waves of MAXP)
-  say "=== 3/4 T2T fan-out: fork ${#CHROMS[@]} shards (MAXP=$MAXP) ==="
-  t_map=$(now); i=0
-  while [ $i -lt ${#CHROMS[@]} ]; do
-    pids=()
-    for j in $(seq 0 $((MAXP-1))); do
-      idx=$((i+j)); [ $idx -ge ${#CHROMS[@]} ] && break
-      run_t2t_shard "gx-t2t-${CHROMS[$idx]}" "${CHROMS[$idx]}" & pids+=($!)
-    done
-    for p in "${pids[@]}"; do wait "$p"; done
-    i=$((i+MAXP))
-  done
-  MAP=$(python3 -c "print(round($(now)-$t_map,2))"); say "T2T fan-out wall-clock ${MAP}s"
-  # 4 · reduce vs GRCh38 (reuses data/wg_warm_*.json from the genome-wide run)
-  say "=== 4/4 reduce: T2T vs GRCh38 -> data/compare.json ==="
-  ensure_grch38_receipts
-  python3 scripts/reduce_compare.py "$DATA" "$SNAP" "$SNAPSZ" "$WARM" "$SNAPS" "$MAP" "${CHROMS[@]}" | tee -a "$LOG"
-  say "=== DONE (snapshot $SNAP retained) ==="
+
+  say "=== 3/4 fan-out: ${#CHROMS[@]} shards, $MAXP concurrent ==="
+  t=$(now); fanout run_t2t_shard gx-t2t; map=$(since "$t")
+  say "T2T fan-out wall-clock ${map}s"
+  require_outputs t2t
+
+  say "=== 4/4 reduce against GRCh38 -> data/compare.new.json ==="
+  grch38_receipts
+  require_outputs wg_warm
+  python3 scripts/reduce_compare.py "$DATA" "$SNAP" "$snapsz" "$warm" "$snaps" "$map" "${CHROMS[@]}" \
+    --harness "crabbox.sh t2t, shards via $via" --out "$DATA/compare.new.json" | tee -a "$LOG"
+  say "=== DONE (snapshot $SNAP retained). Diff data/compare.new.json against data/compare.json. ==="
 }
 
-case "${1:-run}" in
-  run) cmd_run ;;
+cmd_grch38(){
+  local warm_box="gx-wg-warm" t warm snaps map
+  : > "$LOG"
+  SNAP="genomics-wg-$TS"
+  say "=== GRCh38 receipts · ${#CHROMS[@]} chromosomes · islo CLI ==="
+  rm -f "$DATA"/wg_warm_chr*.json "$DATA"/wg_warm_chr*.time "$DATA"/_wg_warm_*.out
+
+  say "=== 1/3 warm base: download ${#CHROMS[@]} hg38 chromosomes, md5-check ==="
+  islo rm "$warm_box" >>"$LOG" 2>&1 || true
+  t=$(now); inject "$warm_box"
+  islo use "$warm_box" --cpu 2 --memory 4096 --disk 25 -- bash -lc "\$HOME/gx/warmup.sh ${CHROMS[*]}" >>"$LOG" 2>&1
+  warm=$(since "$t"); say "warm base built in ${warm}s"
+
+  say "=== 2/3 snapshot -> $SNAP ==="
+  t=$(now); islo snapshot save "$warm_box" --name "$SNAP" >>"$LOG" 2>&1; snaps=$(since "$t")
+  say "snapshot saved in ${snaps}s"
+  islo rm "$warm_box" >>"$LOG" 2>&1 || true
+
+  say "=== 3/3 fan-out: ${#CHROMS[@]} shards, $MAXP concurrent ==="
+  t=$(now); fanout run_grch38_shard gx-wg; map=$(since "$t")
+  say "GRCh38 fan-out wall-clock ${map}s"
+  require_outputs wg_warm
+  say "=== DONE: data/wg_warm_*.json written (snapshot $SNAP retained); ./crabbox.sh t2t reduces against them ==="
+}
+
+case "${1:-}" in
   t2t) cmd_t2t ;;
-  *) echo "usage: crabbox.sh {run|t2t}"; exit 1 ;;
+  grch38) cmd_grch38 ;;
+  *) echo "usage: $0 {t2t|grch38}" >&2; exit 1 ;;
 esac
