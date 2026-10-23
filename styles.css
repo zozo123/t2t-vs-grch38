@@ -172,6 +172,7 @@ figcaption { margin-bottom: .9rem; color: var(--ink); }
     linear-gradient(0deg, var(--rule) 1px, transparent 1px) 0 0 / 100% 20%,
     rgba(255,255,255,.28);
   border: 1px solid var(--rule);
+  margin-bottom: 1.9rem;
 }
 .pt {
   position: absolute;
@@ -196,7 +197,8 @@ figcaption { margin-bottom: .9rem; color: var(--ink); }
   font-size: .68rem;
   color: var(--ink-2);
 }
-.axis.x { right: .8rem; bottom: .5rem; }
+/* below the plot box, so low points cannot cover it */
+.axis.x { right: 0; top: calc(100% + .45rem); }
 .axis.y { left: .8rem; top: .5rem; }
 .bars, .density { display: grid; gap: .42rem; }
 .barrow {
