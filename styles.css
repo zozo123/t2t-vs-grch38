@@ -5,6 +5,11 @@
   --ink-2: #5d5548;
   --rule: rgba(27, 24, 19, .18);
   --hot: #e5421f;
+  /* --hot is 3.0-3.3:1 on the paper tones, so it stays for fills and borders.
+     Text uses --hot-ink (>= 5:1 on paper, paper-2 and the callout) or, on the
+     ink footer, --hot-on-ink (5.6:1). */
+  --hot-ink: #a82e0e;
+  --hot-on-ink: #f0643f;
   --blue: #204f79;
   --green: #486b36;
   --neg: #1b1813;
@@ -21,7 +26,7 @@ body {
   font-size: 18px;
   line-height: 1.55;
 }
-a { color: var(--hot); text-underline-offset: .15em; }
+a { color: var(--hot-ink); text-underline-offset: .15em; }
 .mast, .section, footer { padding-inline: clamp(1.25rem, 5vw, 5rem); }
 .mast {
   min-height: 92vh;
@@ -46,7 +51,7 @@ a { color: var(--hot); text-underline-offset: .15em; }
   border-block: 1px solid var(--rule);
   padding: .7rem 0;
 }
-.rule span:first-child { color: var(--hot); font-weight: 600; }
+.rule span:first-child { color: var(--hot-ink); font-weight: 600; }
 h1 {
   max-width: 980px;
   margin: 2.2rem 0 0;
@@ -103,7 +108,7 @@ nav a:hover { background: var(--ink); color: var(--paper); }
 }
 .section-head span {
   font-family: var(--mono);
-  color: var(--hot);
+  color: var(--hot-ink);
   font-size: .78rem;
   letter-spacing: .12em;
 }
@@ -183,7 +188,7 @@ figcaption { margin-bottom: .9rem; color: var(--ink); }
   border: 2px solid var(--paper);
   box-shadow: 0 4px 14px rgba(27,24,19,.18);
 }
-.pt.acro { background: var(--hot); }
+.pt.acro { background: var(--hot-ink); }
 .pt.het { background: var(--blue); }
 .axis {
   position: absolute;
@@ -332,7 +337,7 @@ footer {
   font-size: .78rem;
 }
 footer p { max-width: 1220px; margin: .35rem auto; }
-footer a { color: var(--hot); }
+footer a { color: var(--hot-on-ink); }
 body.data-error #figures::before {
   content: "data/compare.json could not be loaded, so the figures are empty. The numbers in the text are static copies of it.";
   display: block;
@@ -340,7 +345,7 @@ body.data-error #figures::before {
   margin: 0 auto 1.5rem;
   padding: .9rem 1rem;
   border: 1px solid var(--hot);
-  color: var(--hot);
+  color: var(--hot-ink);
   font-family: var(--mono);
   font-size: .78rem;
 }
